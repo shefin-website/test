@@ -6,7 +6,9 @@ import User from "../models/User.js";
 export const getAllContacts = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
-    const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
+    const filteredUsers = await User.find({
+      _id: { $ne: loggedInUserId },
+    }).select("-password");
 
     res.status(200).json(filteredUsers);
   } catch (error) {
@@ -44,7 +46,9 @@ export const sendMessage = async (req, res) => {
       return res.status(400).json({ message: "Text or image is required." });
     }
     if (senderId.equals(receiverId)) {
-      return res.status(400).json({ message: "Cannot send messages to yourself." });
+      return res
+        .status(400)
+        .json({ message: "Cannot send messages to yourself." });
     }
     const receiverExists = await User.exists({ _id: receiverId });
     if (!receiverExists) {
@@ -98,11 +102,91 @@ export const getChatPartners = async (req, res) => {
       ),
     ];
 
-    const chatPartners = await User.find({ _id: { $in: chatPartnerIds } }).select("-password");
+    const chatPartners = await User.find({
+      _id: { $in: chatPartnerIds },
+    }).select("-password");
 
     res.status(200).json(chatPartners);
   } catch (error) {
     console.error("Error in getChatPartners: ", error.message);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// delete message controller
+
+export const deleteMessage = async (req, res) => {
+  try {
+    const { id: messageId } = req.params;
+    const userId = req.user._id;
+
+    // find the message
+
+    const message = await Message.findById(messageId);
+
+    if (!message) return res.status(404).json({ message: "Message not found" });
+
+    // check message ownership
+
+    if (!message.senderId.equals(userId))
+      return res
+        .status(403)
+        .json({ message: "You can only delete your own messages" });
+
+    await Message.deleteOne({ _id: messageId });
+
+    // real-time delete
+
+    const receiverSocketId = getReceiverSocketId(message.receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageDeleted", { messageId });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Message deleted successfully: ", messageId });
+  } catch (error) {
+    console.error("Error in deleteMessage controller: ", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// update message controller
+
+export const updateMessage = async (req, res) => {
+  try {
+    const { id: messageId } = req.params;
+    const { text } = req.body;
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: "Message not found" });
+
+    // check the permission
+
+    if (!message.senderId.equals(userId))
+      return res
+        .status(403)
+        .json({ message: "You can only edit your own messages" });
+
+    if((!text || text.trim() === '')) {
+      return res.status(400).json({ message: 'Text is required' })
+    }
+
+    message.text = text;
+    message.edited = true
+    await message.save();
+
+    // real-time update
+
+    const receiverSocketId = getReceiverSocketId(message.receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageUpdated", message);
+    }
+
+    res.status(200).json(message);
+  } catch (error) {
+    console.error("Error in updateMessage controller: ", error.message);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
