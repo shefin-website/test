@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useKeyboardSound from "../hooks/useKeyboardSound";
 import { useChatStore } from "../store/useChatStore";
 import toast from "react-hot-toast";
@@ -11,19 +11,33 @@ function MessageInput() {
 
   const fileInputRef = useRef(null);
 
-  const { sendMessage, isSoundEnabled } = useChatStore();
+  const {
+    sendMessage,
+    editMessage,
+    editingMessage,
+    setEditingMessage,
+    isSoundEnabled,
+  } = useChatStore();
+
+  // set new text for update
+  useEffect(() => {
+    if (editingMessage) setText(editingMessage.text);
+  }, [editingMessage]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!text.trim() && !imagePreview) return;
     if (isSoundEnabled) playRandomKeyStrokeSound();
 
-    sendMessage({
-      text: text.trim(),
-      image: imagePreview,
-    });
+    if (editingMessage) {
+      editMessage(editingMessage._id, text);
+      setEditingMessage(null);
+    } else {
+      sendMessage({ text: text.trim(), image: imagePreview });
+    }
+
     setText("");
-    setImagePreview("");
+    setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -33,7 +47,6 @@ function MessageInput() {
       toast.error("Please select an image file");
       return;
     }
-
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
@@ -65,7 +78,10 @@ function MessageInput() {
         </div>
       )}
 
-      <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto flex space-x-4">
+      <form
+        onSubmit={handleSendMessage}
+        className="max-w-3xl mx-auto flex space-x-4"
+      >
         <input
           type="text"
           value={text}
@@ -73,10 +89,9 @@ function MessageInput() {
             setText(e.target.value);
             isSoundEnabled && playRandomKeyStrokeSound();
           }}
-          className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-4"
           placeholder="Type your message..."
+          className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-4"
         />
-
         <input
           type="file"
           accept="image/*"
@@ -84,7 +99,6 @@ function MessageInput() {
           onChange={handleImageChange}
           className="hidden"
         />
-
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -105,4 +119,5 @@ function MessageInput() {
     </div>
   );
 }
+
 export default MessageInput;
