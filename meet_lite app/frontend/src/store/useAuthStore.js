@@ -35,11 +35,7 @@ export const useAuthStore = create((set, get) => ({
       toast.success("Account created successfully!");
       get().connectSocket();
     } catch (error) {
-      if (error.response && error.response.data && error.response.data.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error("Signup failed: " + error.message);
-      }
+      toast.error(error.response.data.message);
     } finally {
       set({ isSigningUp: false });
     }
@@ -55,11 +51,7 @@ export const useAuthStore = create((set, get) => ({
 
       get().connectSocket();
     } catch (error) {
-      if (error.response && error.response.data && error.response.data.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error("Login failed: " + error.message);
-      }
+      toast.error(error.response.data.message);
     } finally {
       set({ isLoggingIn: false });
     }
@@ -84,11 +76,7 @@ export const useAuthStore = create((set, get) => ({
       toast.success("Profile updated successfully");
     } catch (error) {
       console.log("Error in update profile:", error);
-      if (error.response && error.response.data && error.response.data.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error("Update failed: " + error.message);
-      }
+      toast.error(error.response.data.message);
     }
   },
 
